@@ -154,11 +154,11 @@ bench:
 
 .PHONY: test_leak
 test_leak:
-	@${RUN_TEST_CASE}; export RUSTUP_TOOLCHAIN="nightly" RUSTFLAGS="-Zsanitizer=leak" FEATURE_FLAG="-F tokio,time"; _run_test_case
+	cd test-suite; RUSTUP_TOOLCHAIN="nightly" RUST_BACKTRACE=1 RUSTFLAGS="-Zsanitizer=leak" cargo +nightly nextest run ${ARGS} --target x86_64-unknown-linux-gnu -F tokio,time -r --no-capture -j 1
 
 .PHONY: test_internal
 test_internal:
-	RUSTUP_TOOLCHAIN="nightly" RUSTFLAGS="-Zsanitizer=leak" cargo +nightly test -F trace_log --lib -- --nocapture ${ARGS}
+	RUSTUP_TOOLCHAIN="nightly" RUST_BACKTRACE=1 RUSTFLAGS="-Zsanitizer=leak" cargo +nightly nextest run ${ARGS} --lib --target x86_64-unknown-linux-gnu -F trace_log -r --no-capture -j 1
 
 .PHONY: build
 build: init
