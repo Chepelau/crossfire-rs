@@ -102,8 +102,7 @@ impl<F: Flavor> Tx<F> {
         &self, item: &MaybeUninit<F::Item>, deadline: Option<Instant>,
     ) -> Result<(), SendTimeoutError<F::Item>> {
         let shared = &self.shared;
-        let backoff_cfg = BackoffConfig::detect();
-        let mut backoff = Backoff::from(backoff_cfg);
+        let mut backoff = Backoff::from(shared.cfg);
         self.shared.inner.adjust_tx_backoff(&mut backoff);
         let mut state: u8;
         let mut o_waker: Option<<F::Send as Registry>::Waker> = None;

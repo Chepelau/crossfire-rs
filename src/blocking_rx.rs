@@ -109,7 +109,7 @@ impl<F: Flavor> Rx<F> {
             };
         }
         try_recv!({ on_recv_no_waker!() });
-        let mut cfg = BackoffConfig::detect().limit(F::backoff_limit());
+        let mut cfg = shared.cfg.limit(F::backoff_limit());
         if shared.large {
             cfg = cfg.spin(2);
         }

@@ -16,6 +16,7 @@ pub struct ChannelShared<F: Flavor> {
     pub(crate) senders: F::Send,
     pub(crate) recvs: F::Recv,
     pub(crate) large: bool,
+    pub(crate) cfg: BackoffConfig,
 }
 
 impl<F: Flavor> ChannelShared<F> {
@@ -29,6 +30,7 @@ impl<F: Flavor> ChannelShared<F> {
         Arc::new(Self {
             tx_count: AtomicUsize::new(1),
             rx_count: AtomicUsize::new(1),
+            cfg: BackoffConfig::detect(),
             senders,
             recvs,
             large,
@@ -294,13 +296,12 @@ impl<F: Flavor> ChannelShared<F> {
         if self.large {
             return None;
         }
-        let cfg = BackoffConfig::detect();
-        if F::backoff_limit() & cfg.spin_limit == 0 {
+        if F::backoff_limit() & self.cfg.spin_limit == 0 {
             // 1 core don't backoff
             return None;
         }
         // It's effective to spin for size=1
-        Some(Backoff::from(cfg.limit(crossfire_utils::backoff::SPIN_LIMIT)))
+        Some(Backoff::from(self.cfg.limit(crossfire_utils::backoff::SPIN_LIMIT)))
     }
 }
 
