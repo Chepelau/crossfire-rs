@@ -1,5 +1,6 @@
 use super::{FlavorBounded, FlavorImpl, FlavorSelect, Queue, Token};
 use crate::crossbeam::array_queue_spsc::ArrayQueueSpsc;
+use crossfire_utils::backoff;
 use std::mem::MaybeUninit;
 
 /// Ultra light-weight bounded SPSC
@@ -84,6 +85,31 @@ impl<T> FlavorImpl for ArraySpsc<T> {
     #[inline]
     fn try_recv_final(&self) -> Option<T> {
         self.0.pop(true)
+    }
+
+    #[inline]
+    fn backoff_limit() -> u16 {
+        #[cfg(target_arch = "x86_64")]
+        {
+            backoff::DEFAULT_LIMIT
+        }
+        #[cfg(not(target_arch = "x86_64"))]
+        {
+            backoff::MAX_LIMIT
+        }
+    }
+
+    #[inline]
+    fn adjust_tx_backoff(&self, back: &mut backoff::Backoff) {
+        if self.0.capacity() > 20 {
+            back.set_step(2);
+            back.yield_now();
+        } else {
+            #[cfg(not(target_arch = "x86_64"))]
+            {
+                back.config.limit = backoff::MAX_LIMIT;
+            }
+        }
     }
 }
 

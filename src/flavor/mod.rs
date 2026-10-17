@@ -1,4 +1,5 @@
 use crate::waker_registry::*;
+use crossfire_utils::backoff;
 use std::marker::PhantomData;
 use std::mem::MaybeUninit;
 use std::ops::Deref;
@@ -92,8 +93,13 @@ pub(crate) trait FlavorImpl: Queue {
     fn try_recv_final(&self) -> Option<Self::Item>;
 
     #[inline]
-    fn backoff_limit(&self) -> u16 {
-        crossfire_utils::backoff::DEFAULT_LIMIT
+    fn backoff_limit() -> u16 {
+        backoff::DEFAULT_LIMIT
+    }
+
+    #[inline]
+    fn adjust_tx_backoff(&self, back: &mut backoff::Backoff) {
+        back.config.limit = Self::backoff_limit();
     }
 }
 
@@ -170,8 +176,20 @@ macro_rules! flavor_dispatch {
         }
 
         #[inline(always)]
-        fn backoff_limit(&self) -> u16 {
-            $wrap_method!(self, backoff_limit)
+        fn backoff_limit() -> u16 {
+            #[cfg(target_arch = "x86_64")]
+            {
+                crossfire_utils::backoff::DEFAULT_LIMIT
+            }
+            #[cfg(not(target_arch = "x86_64"))]
+            {
+                crossfire_utils::backoff::MAX_LIMIT
+            }
+        }
+
+        #[inline]
+        fn adjust_tx_backoff(&self, back: &mut crossfire_utils::backoff::Backoff) {
+            $wrap_method!(self, adjust_tx_backoff back)
         }
     };
 }

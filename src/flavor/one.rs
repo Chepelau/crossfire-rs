@@ -6,7 +6,7 @@ use core::sync::atomic::{
     compiler_fence, AtomicU16, AtomicU32,
     Ordering::{self, Acquire, Relaxed, Release, SeqCst},
 };
-use crossfire_utils::backoff::*;
+use crossfire_utils::backoff;
 use crossfire_utils::CachePadded;
 
 /// A simplify ArrayQueue specialized for size=1
@@ -163,7 +163,7 @@ impl<T> Slot<T> {
     fn write(&self, tail: u16, value: *const T) {
         let mut stamp = self.stamp.load(Acquire);
         if stamp != tail {
-            let mut backoff = Backoff::new();
+            let mut backoff = backoff::Backoff::new();
             loop {
                 backoff.spin();
                 stamp = self.stamp.load(Acquire);
@@ -180,7 +180,7 @@ impl<T> Slot<T> {
     fn read(&self, head: u16) -> T {
         let mut stamp = self.stamp.load(Acquire);
         if stamp != head {
-            let mut backoff = Backoff::new();
+            let mut backoff = backoff::Backoff::new();
             loop {
                 backoff.spin();
                 stamp = self.stamp.load(Acquire);
@@ -239,10 +239,17 @@ impl<T> FlavorImpl for One<T> {
     }
 
     #[inline]
-    fn backoff_limit(&self) -> u16 {
+    fn backoff_limit() -> u16 {
         // Due to bound is too small,
         // yield with MAX_LIMIT to prevent collapse in high contention
-        MAX_LIMIT
+        backoff::MAX_LIMIT
+    }
+
+    #[inline]
+    fn adjust_tx_backoff(&self, back: &mut backoff::Backoff) {
+        back.spin();
+        back.config.limit = backoff::MAX_LIMIT;
+        back.config.spin_limit = 6;
     }
 }
 

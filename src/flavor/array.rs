@@ -1,5 +1,6 @@
 use super::{FlavorBounded, FlavorImpl, FlavorMC, FlavorMP, FlavorSelect, Queue, Token};
 use crate::crossbeam::array_queue::ArrayQueue;
+use crossfire_utils::backoff;
 use std::mem::MaybeUninit;
 
 /// Which Equals to crossbeam_queue::ArrayQueue
@@ -78,18 +79,26 @@ impl<T> FlavorImpl for Array<T> {
     }
 
     #[inline]
-    fn backoff_limit(&self) -> u16 {
-        use crossfire_utils::backoff;
-        if self.0.capacity() > 10 {
+    fn backoff_limit() -> u16 {
+        #[cfg(target_arch = "x86_64")]
+        {
             backoff::DEFAULT_LIMIT
+        }
+        #[cfg(not(target_arch = "x86_64"))]
+        {
+            backoff::MAX_LIMIT
+        }
+    }
+
+    #[inline]
+    fn adjust_tx_backoff(&self, back: &mut backoff::Backoff) {
+        if self.0.capacity() > 20 {
+            back.set_step(2);
+            back.yield_now();
         } else {
-            #[cfg(target_arch = "x86_64")]
-            {
-                backoff::DEFAULT_LIMIT
-            }
             #[cfg(not(target_arch = "x86_64"))]
             {
-                backoff::MAX_LIMIT
+                back.config.limit = backoff::MAX_LIMIT;
             }
         }
     }

@@ -102,30 +102,16 @@ impl<F: Flavor> Tx<F> {
         &self, item: &MaybeUninit<F::Item>, deadline: Option<Instant>,
     ) -> Result<(), SendTimeoutError<F::Item>> {
         let shared = &self.shared;
-        let large = shared.large;
-        let backoff_cfg = BackoffConfig::detect().spin(2).limit(shared.backoff_limit);
+        let backoff_cfg = BackoffConfig::detect();
         let mut backoff = Backoff::from(backoff_cfg);
-        if large {
-            backoff.set_step(2);
-        }
-        loop {
-            let r = if large { backoff.yield_now() } else { backoff.spin() };
-            if !shared.inner.try_send(item) {
-                if r {
-                    break;
-                }
-                continue;
-            }
-            shared.on_send();
-            trace_log!("tx: send");
-            return Ok(());
-        }
+        self.shared.inner.adjust_tx_backoff(&mut backoff);
         let mut state: u8;
         let mut o_waker: Option<<F::Send as Registry>::Waker> = None;
+        let mut parked = false;
         macro_rules! return_ok {
             () => {
                 trace_log!("tx: send {:?}", o_waker);
-                if shared.is_full() {
+                if parked && shared.is_full() {
                     // It's for 8x1, 16x1.
                     std::thread::yield_now();
                     // self.senders.cache_waker(o_waker, &self.waker_cache);
@@ -134,6 +120,16 @@ impl<F: Flavor> Tx<F> {
             };
         }
         loop {
+            loop {
+                if shared.inner.try_send(item) {
+                    shared.on_send();
+                    return_ok!();
+                }
+                if backoff.is_completed() {
+                    break;
+                }
+                backoff.snooze();
+            }
             self.senders.reg_waker_blocking(&mut o_waker);
             // For nx1 (more likely congest), need to reset backoff
             // to allow more yield to receivers.
@@ -172,17 +168,8 @@ impl<F: Flavor> Tx<F> {
                 }
             }
             if state == WakerState::Woken as u8 {
+                parked = true;
                 backoff.reset();
-                loop {
-                    if shared.inner.try_send(item) {
-                        shared.on_send();
-                        return_ok!();
-                    }
-                    if backoff.is_completed() {
-                        break;
-                    }
-                    backoff.snooze();
-                }
             } else {
                 // there's no direct copy logic now
                 debug_assert_eq!(state, WakerState::Closed as u8);

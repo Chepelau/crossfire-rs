@@ -1,6 +1,7 @@
 use super::{FlavorImpl, FlavorNew, FlavorSelect, Queue, Token};
 use core::cell::UnsafeCell;
 use core::mem::{needs_drop, MaybeUninit};
+use crossfire_utils::backoff;
 use crossfire_utils::CachePadded;
 use std::ptr;
 use std::sync::atomic::{
@@ -348,10 +349,17 @@ impl<T> FlavorImpl for OneSpsc<T> {
     }
 
     #[inline]
-    fn backoff_limit(&self) -> u16 {
+    fn backoff_limit() -> u16 {
         // Due to bound is too small,
         // yield with MAX_LIMIT to prevent collapse in high contention
-        crossfire_utils::backoff::MAX_LIMIT
+        backoff::MAX_LIMIT
+    }
+
+    #[inline]
+    fn adjust_tx_backoff(&self, back: &mut backoff::Backoff) {
+        back.spin();
+        back.config.limit = backoff::MAX_LIMIT;
+        back.config.spin_limit = 6;
     }
 }
 

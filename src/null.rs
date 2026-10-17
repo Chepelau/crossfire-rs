@@ -127,7 +127,7 @@ impl FlavorImpl for Null {
     }
 
     #[inline]
-    fn backoff_limit(&self) -> u16 {
+    fn backoff_limit() -> u16 {
         0
     }
 }

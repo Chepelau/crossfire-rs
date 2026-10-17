@@ -15,7 +15,6 @@ pub struct ChannelShared<F: Flavor> {
     rx_count: AtomicUsize,
     pub(crate) senders: F::Send,
     pub(crate) recvs: F::Recv,
-    pub(crate) backoff_limit: u16,
     pub(crate) large: bool,
 }
 
@@ -32,7 +31,6 @@ impl<F: Flavor> ChannelShared<F> {
             rx_count: AtomicUsize::new(1),
             senders,
             recvs,
-            backoff_limit: inner.backoff_limit(),
             large,
             inner,
         })
@@ -297,12 +295,12 @@ impl<F: Flavor> ChannelShared<F> {
             return None;
         }
         let cfg = BackoffConfig::detect();
-        if cfg.spin_limit == 0 {
+        if F::backoff_limit() & cfg.spin_limit == 0 {
             // 1 core don't backoff
             return None;
         }
-        // It's effective to yield for size=1
-        Some(Backoff::from(cfg.limit(self.backoff_limit)))
+        // It's effective to spin for size=1
+        Some(Backoff::from(cfg.limit(crossfire_utils::backoff::SPIN_LIMIT)))
     }
 }
 
