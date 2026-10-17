@@ -1,0 +1,19 @@
+[package]
+name = "crossfire-utils"
+version = "0.1.0"
+description = "Utilities used by crossfire"
+repository = "https://github.com/frostyplanet/crossfire-rs"
+categories = ["concurrency", "data-structures"]
+edition = "2021"
+license = "Apache-2.0"
+readme = "../README.md"
+
+[dependencies]
+
+[features]
+default=["std"]
+padding=[]
+std=[]
+
+[lints]
+workspace = true

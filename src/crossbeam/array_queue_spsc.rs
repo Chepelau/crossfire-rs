@@ -51,7 +51,7 @@ use core::mem::{self, MaybeUninit};
 use core::panic::{RefUnwindSafe, UnwindSafe};
 use core::ptr;
 use core::sync::atomic::{AtomicU64, Ordering};
-use crossbeam_utils::CachePadded;
+use crossfire_utils::CachePadded;
 
 /// A slot in a queue.
 struct Slot<T> {

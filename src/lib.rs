@@ -262,8 +262,7 @@ pub mod flavor;
 mod shared;
 pub use shared::ChannelShared;
 
-mod backoff;
-pub use backoff::detect_backoff_cfg;
+pub use crossfire_utils::backoff::detect_backoff_cfg;
 
 #[allow(dead_code)]
 mod collections;

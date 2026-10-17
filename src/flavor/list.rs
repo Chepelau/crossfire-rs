@@ -67,11 +67,6 @@ impl<T> FlavorImpl for List<T> {
     fn try_recv_final(&self) -> Option<T> {
         self.0.pop::<true>()
     }
-
-    #[inline]
-    fn backoff_limit(&self) -> u16 {
-        crate::backoff::DEFAULT_LIMIT
-    }
 }
 
 impl<T> FlavorNew for List<T> {

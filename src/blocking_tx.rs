@@ -1,7 +1,7 @@
-use crate::backoff::*;
 use crate::flavor::FlavorMP;
 use crate::weak::WeakTx;
 use crate::{shared::*, trace_log, AsyncTx, MAsyncTx, NotCloneable, SenderType};
+use crossfire_utils::backoff::*;
 use std::cell::Cell;
 use std::fmt;
 use std::marker::PhantomData;

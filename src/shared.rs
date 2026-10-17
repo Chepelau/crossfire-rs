@@ -1,9 +1,9 @@
-use crate::backoff::*;
 pub(crate) use crate::crossbeam::err::*;
 pub(crate) use crate::flavor::{ChannelSharedSelect, Flavor, FlavorSelect, Token};
 use crate::trace_log;
 pub(crate) use crate::waker::*;
 pub(crate) use crate::waker_registry::*;
+use crossfire_utils::backoff::*;
 use std::mem::MaybeUninit;
 use std::sync::atomic::{compiler_fence, fence, AtomicUsize, Ordering};
 use std::sync::Arc;

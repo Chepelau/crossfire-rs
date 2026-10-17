@@ -1,4 +1,3 @@
-use crate::backoff::*;
 use crate::flavor::{Flavor, FlavorBounded, FlavorImpl, FlavorNew, FlavorWrap};
 use crate::shared::{check_timeout, ChannelShared};
 use crate::waker::WakerState;
@@ -6,6 +5,7 @@ use crate::waker_registry::{RegistrySend, SelectWaker, SelectWakerWrapper};
 use crate::BlockingRxTrait;
 use crate::SenderType;
 use crate::{RecvError, RecvTimeoutError, TryRecvError};
+use crossfire_utils::backoff::*;
 use std::cell::Cell;
 use std::fmt;
 use std::sync::atomic::Ordering;

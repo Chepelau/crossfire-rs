@@ -1,5 +1,5 @@
 [workspace]
-members = ["test-suite"]
+members = ["test-suite", "utils"]
 
 [package]
 name = "crossfire"
@@ -24,7 +24,7 @@ rust-version = "1.79"
 #crossfire = { path = "." }
 
 [dependencies]
-crossbeam-utils = "0.8"
+crossfire-utils = { version="0.1", path="utils/", features=["padding", "std"] }
 futures-core = "0.3"
 parking_lot = "0"
 tokio = { version = "1", features = ["time", "rt"], optional=true }
@@ -38,6 +38,7 @@ log = "0"
 tokio = { version = "1", features = ["time", "sync", "rt-multi-thread", "rt", "macros"] }
 smol = "2"
 captains-log = "0"
+crossbeam-utils = "0.8"
 
 ## For profiling symbol
 #[profile.release]
@@ -63,7 +64,7 @@ all-features = true
 # enable features in the documentation
 rustdoc-args = ["--cfg", "docsrs"]
 
-[lints.clippy]
+[workspace.lints.clippy]
 new_ret_no_self = "allow"
 needless_range_loop = "allow"
 type_complexity = "allow"
@@ -73,3 +74,6 @@ transmute_ptr_to_ref = "allow"
 len_without_is_empty = "allow"
 new_without_default = "allow"
 result_unit_err = "allow"
+
+[lints]
+workspace = true

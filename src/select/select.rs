@@ -33,7 +33,6 @@
 //   this pointer address is checked, causing a panic to ensure safety.
 
 use super::SelectMode;
-use crate::backoff::*;
 use crate::flavor::{ChannelSharedSelect, Token};
 use crate::shared::{check_timeout, ChannelShared};
 use crate::trace_log;
@@ -41,6 +40,7 @@ use crate::waker::WakerState;
 use crate::waker_registry::SelectWaker;
 use crate::ReceiverType;
 use crate::{RecvError, RecvTimeoutError, TryRecvError};
+use crossfire_utils::backoff::*;
 use smallvec::SmallVec;
 use std::collections::hash_map::DefaultHasher;
 use std::fmt;

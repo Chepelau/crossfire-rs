@@ -1,7 +1,7 @@
-use crate::backoff::*;
 use crate::flavor::{FlavorMC, FlavorSelect};
 use crate::select::SelectResult;
 use crate::{shared::*, trace_log, AsyncRx, MAsyncRx, NotCloneable, ReceiverType};
+use crossfire_utils::backoff::*;
 use std::cell::Cell;
 use std::fmt;
 use std::marker::PhantomData;

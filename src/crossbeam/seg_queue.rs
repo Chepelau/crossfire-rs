@@ -43,7 +43,7 @@ use core::mem::MaybeUninit;
 use core::panic::{RefUnwindSafe, UnwindSafe};
 use core::ptr;
 use core::sync::atomic::{self, AtomicPtr, AtomicUsize, Ordering};
-use crossbeam_utils::{Backoff, CachePadded};
+use crossfire_utils::{Backoff, CachePadded};
 use std::alloc::{alloc_zeroed, handle_alloc_error, Layout};
 use std::boxed::Box;
 
@@ -76,7 +76,7 @@ struct Slot<T> {
 impl<T> Slot<T> {
     /// Waits until a value is written into the slot.
     fn wait_write(&self) {
-        let backoff = Backoff::new();
+        let mut backoff = Backoff::new();
         while self.state.load(Ordering::Acquire) & WRITE == 0 {
             backoff.snooze();
         }
@@ -124,7 +124,7 @@ impl<T> Block<T> {
 
     /// Waits until the next pointer is set.
     fn wait_next(&self) -> *mut Self {
-        let backoff = Backoff::new();
+        let mut backoff = Backoff::new();
         loop {
             let next = self.next.load(Ordering::Acquire);
             if !next.is_null() {
@@ -208,7 +208,7 @@ impl<T> SegQueue<T> {
     /// Pushes back an element to the tail.
     #[inline(always)]
     pub fn push(&self, value: T) {
-        let backoff = Backoff::new();
+        let mut backoff = Backoff::new();
         let mut tail = self.tail.index.load(Ordering::Acquire);
         let mut block = self.tail.block.load(Ordering::Acquire);
         let mut next_block = None;
@@ -307,7 +307,7 @@ impl<T> SegQueue<T> {
 
     #[inline(always)]
     fn _pop<const FINAL: bool>(&self) -> Option<(*mut Block<T>, usize)> {
-        let backoff = Backoff::new();
+        let mut backoff = Backoff::new();
         let mut head;
         if FINAL {
             head = self.head.index.load(Ordering::SeqCst);

@@ -1,7 +1,5 @@
-use core::num::NonZero;
-use std::mem::transmute;
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
-use std::thread;
+use core::mem::transmute;
+use core::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 
 pub const SPIN_LIMIT: u16 = 6;
 
@@ -33,14 +31,18 @@ pub fn detect_backoff_cfg() {
     if _INIT.compare_exchange(false, true, Ordering::Relaxed, Ordering::Relaxed).is_err() {
         return;
     }
-    if thread::available_parallelism().unwrap_or(NonZero::new(1).unwrap())
-        == NonZero::new(1).unwrap()
+    #[cfg(feature = "std")]
     {
-        // For one core (like VM machine), better use yield_now instead of spin_loop.
-        DETECT_CONFIG.store(
-            BackoffConfig { spin_limit: 0, limit: DEFAULT_LIMIT }.to_u32(),
-            Ordering::Release,
-        );
+        use core::num::NonZero;
+        if std::thread::available_parallelism().unwrap_or(NonZero::new(1).unwrap())
+            == NonZero::new(1).unwrap()
+        {
+            // For one core (like VM machine), better use yield_now instead of spin_loop.
+            DETECT_CONFIG.store(
+                BackoffConfig { spin_limit: 0, limit: DEFAULT_LIMIT }.to_u32(),
+                Ordering::Release,
+            );
+        }
     }
 }
 
@@ -121,8 +123,9 @@ impl Backoff {
     #[allow(dead_code)]
     #[inline(always)]
     pub fn spin(&mut self) -> bool {
-        for _ in 0..1 << self.step.min(SPIN_LIMIT) {
-            std::hint::spin_loop();
+        let step = if self.step < SPIN_LIMIT { self.step } else { SPIN_LIMIT };
+        for _ in 0..1 << step {
+            core::hint::spin_loop();
         }
         if self.step < MAX_LIMIT {
             self.step += 1;
@@ -139,21 +142,30 @@ impl Backoff {
 
     #[inline(always)]
     pub fn snooze(&mut self) -> bool {
-        if self.step >= self.config.limit {
-            return true;
-        }
-        if self.step < self.config.spin_limit {
-            for _ in 0..1 << self.step {
-                std::hint::spin_loop();
+        if self.step < self.config.limit {
+            self.step += 1;
+            if self.step < self.config.spin_limit {
+                for _ in 0..1 << self.step {
+                    core::hint::spin_loop();
+                }
+                false
+            } else {
+                #[cfg(feature = "std")]
+                {
+                    std::thread::yield_now();
+                    false
+                }
+                #[cfg(not(feature = "std"))]
+                {
+                    true
+                }
             }
         } else {
-            std::thread::yield_now();
+            true
         }
-        self.step += 1;
-        false
     }
 
-    #[allow(dead_code)]
+    #[cfg(feature = "std")]
     #[inline(always)]
     pub fn yield_now(&mut self) -> bool {
         if self.step >= self.config.limit {
@@ -169,7 +181,6 @@ impl Backoff {
         self.step >= self.config.limit
     }
 
-    #[allow(dead_code)]
     #[inline(always)]
     pub fn step(&self) -> usize {
         self.step as usize

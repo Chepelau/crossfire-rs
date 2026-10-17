@@ -50,7 +50,7 @@ use core::mem::{self, MaybeUninit};
 use core::panic::{RefUnwindSafe, UnwindSafe};
 use core::ptr;
 use core::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
-use crossbeam_utils::{Backoff, CachePadded};
+use crossfire_utils::{Backoff, CachePadded};
 
 /// A slot in a queue.
 struct Slot<T> {
@@ -158,7 +158,7 @@ impl<T> ArrayQueueMpsc<T> {
 
     #[inline(always)]
     pub unsafe fn push_with_ptr(&self, value: *const T) -> bool {
-        let backoff = Backoff::new();
+        let mut backoff = Backoff::new();
         let mut sender_val = self.sender.load(Ordering::Relaxed);
         loop {
             let tail = sender_val as u32;

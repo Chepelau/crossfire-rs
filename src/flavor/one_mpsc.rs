@@ -1,5 +1,4 @@
 use super::{FlavorImpl, FlavorMP, FlavorNew, FlavorSelect, Queue, Token};
-use crate::backoff::*;
 use core::cell::UnsafeCell;
 use core::mem::{needs_drop, MaybeUninit};
 use core::ptr;
@@ -7,7 +6,8 @@ use core::sync::atomic::{
     AtomicU16, AtomicU32,
     Ordering::{self, Acquire, Release, SeqCst},
 };
-use crossbeam_utils::CachePadded;
+use crossfire_utils::backoff::*;
+use crossfire_utils::CachePadded;
 
 /// A simplify ArrayQueue specialized for size=1
 pub struct OneMpsc<T> {
@@ -225,7 +225,7 @@ impl<T> FlavorImpl for OneMpsc<T> {
     fn backoff_limit(&self) -> u16 {
         // Due to bound is too small,
         // yield with MAX_LIMIT to prevent collapse in high contention
-        crate::backoff::MAX_LIMIT
+        MAX_LIMIT
     }
 }
 

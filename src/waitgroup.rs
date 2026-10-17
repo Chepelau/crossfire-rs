@@ -130,10 +130,10 @@
 //! }
 //! ```
 
-use crate::backoff::Backoff;
 use crate::shared::{check_timeout, ThinWaker};
 #[allow(unused_imports)]
 use crate::{tokio_task_id, trace_log};
+use crossfire_utils::backoff::Backoff;
 pub use pointers::{Pointer, SmartPointer};
 use std::cell::UnsafeCell;
 use std::fmt;

@@ -91,7 +91,10 @@ pub(crate) trait FlavorImpl: Queue {
 
     fn try_recv_final(&self) -> Option<Self::Item>;
 
-    fn backoff_limit(&self) -> u16;
+    #[inline]
+    fn backoff_limit(&self) -> u16 {
+        crossfire_utils::backoff::DEFAULT_LIMIT
+    }
 }
 
 pub(crate) trait FlavorSelect: Queue {

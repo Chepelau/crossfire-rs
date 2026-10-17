@@ -37,11 +37,11 @@
 //! }
 //! ```
 
-use crate::backoff::Backoff;
 use crate::shared::*;
 #[allow(unused_imports)]
 use crate::{tokio_task_id, trace_log};
 use core::cell::UnsafeCell;
+use crossfire_utils::backoff::Backoff;
 use std::future::Future;
 use std::pin::Pin;
 use std::ptr::NonNull;

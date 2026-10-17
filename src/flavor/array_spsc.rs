@@ -85,11 +85,6 @@ impl<T> FlavorImpl for ArraySpsc<T> {
     fn try_recv_final(&self) -> Option<T> {
         self.0.pop(true)
     }
-
-    #[inline]
-    fn backoff_limit(&self) -> u16 {
-        crate::backoff::MAX_LIMIT
-    }
 }
 
 impl<T> FlavorSelect for ArraySpsc<T> {

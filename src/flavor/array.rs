@@ -79,16 +79,17 @@ impl<T> FlavorImpl for Array<T> {
 
     #[inline]
     fn backoff_limit(&self) -> u16 {
+        use crossfire_utils::backoff;
         if self.0.capacity() > 10 {
-            crate::backoff::DEFAULT_LIMIT
+            backoff::DEFAULT_LIMIT
         } else {
             #[cfg(target_arch = "x86_64")]
             {
-                crate::backoff::DEFAULT_LIMIT
+                backoff::DEFAULT_LIMIT
             }
             #[cfg(not(target_arch = "x86_64"))]
             {
-                crate::backoff::MAX_LIMIT
+                backoff::MAX_LIMIT
             }
         }
     }

@@ -50,7 +50,7 @@ use core::mem::{self, MaybeUninit};
 use core::panic::{RefUnwindSafe, UnwindSafe};
 use core::ptr;
 use core::sync::atomic::{self, AtomicUsize, Ordering};
-use crossbeam_utils::{Backoff, CachePadded};
+use crossfire_utils::{Backoff, CachePadded};
 
 /// A slot in a queue.
 struct Slot<T> {
@@ -217,7 +217,7 @@ impl<T, const MP: bool, const MC: bool> ArrayQueue<T, MP, MC> {
 
     #[inline(always)]
     pub unsafe fn push_with_ptr(&self, value: *const T) -> bool {
-        let backoff = Backoff::new();
+        let mut backoff = Backoff::new();
         let mut tail =
             if MP { self.tail.load(Ordering::Relaxed) } else { self.tail.load(Ordering::Acquire) };
         macro_rules! check_full {
@@ -288,7 +288,7 @@ impl<T, const MP: bool, const MC: bool> ArrayQueue<T, MP, MC> {
             let order = if MC { Ordering::Relaxed } else { Ordering::Acquire };
             head = self.head.load(order);
         }
-        let backoff = Backoff::new();
+        let mut backoff = Backoff::new();
         loop {
             // Deconstruct the head.
             let index = head & (self.one_lap - 1);
