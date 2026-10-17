@@ -56,7 +56,7 @@ pub struct BackoffConfig {
 impl Default for BackoffConfig {
     #[inline(always)]
     fn default() -> Self {
-        Self::from_u32(DETECT_CONFIG.load(Ordering::Relaxed))
+        Self::from_u32(DEFAULT_CONFIG)
     }
 }
 
