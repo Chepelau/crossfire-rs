@@ -73,7 +73,7 @@ struct Slot<T> {
 /// a bit faster than [`SegQueue`].
 ///
 /// [`SegQueue`]: super::SegQueue
-pub struct ArrayQueue<T, const MP: bool, const MC: bool> {
+pub struct ArrayQueue<T> {
     /// The head of the queue.
     ///
     /// This value is a "stamp" consisting of an index into the buffer and a lap, but packed into a
@@ -97,13 +97,13 @@ pub struct ArrayQueue<T, const MP: bool, const MC: bool> {
     one_lap: usize,
 }
 
-unsafe impl<T, const MP: bool, const MC: bool> Sync for ArrayQueue<T, MP, MC> {}
-unsafe impl<T, const MP: bool, const MC: bool> Send for ArrayQueue<T, MP, MC> {}
+unsafe impl<T> Sync for ArrayQueue<T> {}
+unsafe impl<T> Send for ArrayQueue<T> {}
 
-impl<T, const MP: bool, const MC: bool> UnwindSafe for ArrayQueue<T, MP, MC> {}
-impl<T, const MP: bool, const MC: bool> RefUnwindSafe for ArrayQueue<T, MP, MC> {}
+impl<T> UnwindSafe for ArrayQueue<T> {}
+impl<T> RefUnwindSafe for ArrayQueue<T> {}
 
-impl<T, const MP: bool, const MC: bool> ArrayQueue<T, MP, MC> {
+impl<T> ArrayQueue<T> {
     /// Creates a new bounded queue with the given capacity.
     ///
     /// # Panics
@@ -190,18 +190,11 @@ impl<T, const MP: bool, const MC: bool> ArrayQueue<T, MP, MC> {
                 // Set to `{ lap: lap.wrapping_add(1), index: 0 }`.
                 lap.wrapping_add(self.one_lap)
             };
-            if MP {
-                // Try moving the tail.
-                if let Err(t) = self.tail.compare_exchange_weak(
-                    tail,
-                    new_tail,
-                    Ordering::SeqCst,
-                    Ordering::Relaxed,
-                ) {
-                    return Err((stamp, Some(t)));
-                }
-            } else {
-                self.tail.store(new_tail, Ordering::SeqCst);
+            // Try moving the tail.
+            if let Err(t) =
+                self.tail.compare_exchange_weak(tail, new_tail, Ordering::SeqCst, Ordering::Relaxed)
+            {
+                return Err((stamp, Some(t)));
             }
             // Write the value into the slot and update the stamp.
             unsafe {
@@ -218,17 +211,12 @@ impl<T, const MP: bool, const MC: bool> ArrayQueue<T, MP, MC> {
     #[inline(always)]
     pub unsafe fn push_with_ptr(&self, value: *const T) -> bool {
         let mut backoff = Backoff::new();
-        let mut tail =
-            if MP { self.tail.load(Ordering::Relaxed) } else { self.tail.load(Ordering::Acquire) };
+        let mut tail = self.tail.load(Ordering::Relaxed);
         macro_rules! check_full {
             ($tail: expr) => {
-                let head = if MP || MC {
-                    // NOTE: The fence is preventing livestock
-                    atomic::fence(Ordering::SeqCst);
-                    self.head.load(Ordering::Relaxed)
-                } else {
-                    self.head.load(Ordering::SeqCst)
-                };
+                // NOTE: The fence is preventing livestock
+                atomic::fence(Ordering::SeqCst);
+                let head = self.head.load(Ordering::Relaxed);
                 // If the head lags one lap behind the tail as well...
                 if head.wrapping_add(self.one_lap) == $tail {
                     // ...then the queue is full.
@@ -249,9 +237,7 @@ impl<T, const MP: bool, const MC: bool> ArrayQueue<T, MP, MC> {
                         check_full!(tail);
                     }
                     backoff.snooze();
-                    if MP {
-                        tail = self.tail.load(Ordering::Relaxed);
-                    }
+                    tail = self.tail.load(Ordering::Relaxed);
                 }
             }
         }
@@ -280,13 +266,12 @@ impl<T, const MP: bool, const MC: bool> ArrayQueue<T, MP, MC> {
     #[inline]
     fn _start_read(&self, final_check: bool) -> Option<(&Slot<T>, usize)> {
         let mut head;
-        if final_check {
+        if !final_check {
+            head = self.head.load(Ordering::Relaxed);
+        } else {
             // because we need to check is_empty before park,
             // use SeqCst to make Miri happy
             head = self.head.load(Ordering::SeqCst);
-        } else {
-            let order = if MC { Ordering::Relaxed } else { Ordering::Acquire };
-            head = self.head.load(order);
         }
         let mut backoff = Backoff::new();
         loop {
@@ -309,33 +294,22 @@ impl<T, const MP: bool, const MC: bool> ArrayQueue<T, MP, MC> {
                     // Set to `{ lap: lap.wrapping_add(1), index: 0 }`.
                     lap.wrapping_add(self.one_lap)
                 };
-                if MC {
-                    // Try moving the head.
-                    if let Err(new_head) = self.head.compare_exchange_weak(
-                        head,
-                        new,
-                        Ordering::SeqCst,
-                        Ordering::Relaxed,
-                    ) {
-                        head = new_head;
-                        backoff.spin();
-                        continue;
-                    }
-                } else {
-                    self.head.store(new, Ordering::SeqCst);
+                // Try moving the head.
+                if let Err(new_head) =
+                    self.head.compare_exchange_weak(head, new, Ordering::SeqCst, Ordering::Relaxed)
+                {
+                    head = new_head;
+                    backoff.spin();
+                    continue;
                 }
                 let new_head = head.wrapping_add(self.one_lap);
                 return Some((slot, new_head));
             } else {
                 if stamp == head {
                     // Check full
-                    let tail = if MP || MC {
-                        // NOTE: The fence is preventing live lock
-                        atomic::fence(Ordering::SeqCst);
-                        self.tail.load(Ordering::Relaxed)
-                    } else {
-                        self.tail.load(Ordering::SeqCst)
-                    };
+                    // NOTE: The fence is preventing live lock
+                    atomic::fence(Ordering::SeqCst);
+                    let tail = self.tail.load(Ordering::Relaxed);
                     // If the tail equals the head, that means the channel is empty.
                     if tail == head {
                         return None;
@@ -345,9 +319,7 @@ impl<T, const MP: bool, const MC: bool> ArrayQueue<T, MP, MC> {
                     // Snooze because we need to wait for the stamp to get updated.
                     backoff.snooze();
                 }
-                if MC {
-                    head = self.head.load(Ordering::Relaxed);
-                }
+                head = self.head.load(Ordering::Relaxed);
                 continue;
             }
         }
@@ -421,7 +393,7 @@ impl<T, const MP: bool, const MC: bool> ArrayQueue<T, MP, MC> {
     }
 }
 
-impl<T, const MP: bool, const MC: bool> Drop for ArrayQueue<T, MP, MC> {
+impl<T> Drop for ArrayQueue<T> {
     fn drop(&mut self) {
         if mem::needs_drop::<T>() {
             // Get the index of the head.

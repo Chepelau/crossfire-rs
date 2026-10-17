@@ -4,7 +4,7 @@ use crossfire_utils::backoff;
 use std::mem::MaybeUninit;
 
 /// Which Equals to crossbeam_queue::ArrayQueue
-pub struct Array<T>(ArrayQueue<T, true, true>);
+pub struct Array<T>(ArrayQueue<T>);
 
 impl<T> Array<T> {
     pub fn new(mut bound: usize) -> Self {
@@ -12,7 +12,7 @@ impl<T> Array<T> {
         if bound == 0 {
             bound = 1;
         }
-        Self(ArrayQueue::<T, true, true>::new(bound))
+        Self(ArrayQueue::<T>::new(bound))
     }
 }
 
