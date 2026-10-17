@@ -105,7 +105,6 @@ impl<F: Flavor> Tx<F> {
         let large = shared.large;
         let backoff_cfg = BackoffConfig::detect().spin(2).limit(shared.backoff_limit);
         let mut backoff = Backoff::from(backoff_cfg);
-        let congest = shared.might_congest();
         if large {
             backoff.set_step(2);
         }
@@ -141,8 +140,11 @@ impl<F: Flavor> Tx<F> {
             // For nxn (the backoff is already complete), wait a little bit.
             state = shared.sender_double_check::<false>(item, &mut o_waker);
             trace_log!("tx: sender_double_check {:?} state={}", o_waker, state);
+            if state == WakerState::Done as u8 {
+                return_ok!();
+            }
             while state < WakerState::Woken as u8 {
-                if congest {
+                if shared.might_congest() {
                     state = shared.sender_snooze(&o_waker, &mut backoff);
                 }
                 if state <= WakerState::Waiting as u8 {
@@ -181,9 +183,8 @@ impl<F: Flavor> Tx<F> {
                     }
                     backoff.snooze();
                 }
-            } else if state == WakerState::Done as u8 {
-                return_ok!();
             } else {
+                // there's no direct copy logic now
                 debug_assert_eq!(state, WakerState::Closed as u8);
                 return Err(SendTimeoutError::Disconnected(unsafe { item.assume_init_read() }));
             }
@@ -205,7 +206,8 @@ impl<F: Flavor> Tx<F> {
     #[inline]
     pub fn send(&self, item: F::Item) -> Result<(), SendError<F::Item>> {
         let shared = &self.shared;
-        if shared.is_rx_closed() {
+        if !shared.is_rx_closed() {
+        } else {
             return Err(SendError(item));
         }
         let _item = MaybeUninit::new(item);
@@ -213,10 +215,14 @@ impl<F: Flavor> Tx<F> {
             shared.on_send();
             return Ok(());
         }
-        match self._send_bounded(&_item, None) {
-            Ok(_) => Ok(()),
-            Err(SendTimeoutError::Disconnected(e)) => Err(SendError(e)),
-            Err(SendTimeoutError::Timeout(_)) => unreachable!(),
+        if F::IS_BOUNDED {
+            match self._send_bounded(&_item, None) {
+                Ok(_) => Ok(()),
+                Err(SendTimeoutError::Disconnected(e)) => Err(SendError(e)),
+                Err(SendTimeoutError::Timeout(_)) => unreachable!(),
+            }
+        } else {
+            unreachable!();
         }
     }
 
@@ -237,7 +243,8 @@ impl<F: Flavor> Tx<F> {
     #[inline]
     pub fn try_send(&self, item: F::Item) -> Result<(), TrySendError<F::Item>> {
         let shared = &self.shared;
-        if shared.is_rx_closed() {
+        if !shared.is_rx_closed() {
+        } else {
             return Err(TrySendError::Disconnected(item));
         }
         let _item = MaybeUninit::new(item);
@@ -264,25 +271,22 @@ impl<F: Flavor> Tx<F> {
         &self, item: F::Item, timeout: Duration,
     ) -> Result<(), SendTimeoutError<F::Item>> {
         let shared = &self.shared;
-        if shared.is_rx_closed() {
+        if !shared.is_rx_closed() {
+        } else {
             return Err(SendTimeoutError::Disconnected(item));
         }
+        let _item = MaybeUninit::new(item);
+        if shared.inner.try_send(&_item) {
+            shared.on_send();
+            return Ok(());
+        }
         match Instant::now().checked_add(timeout) {
-            None => self.try_send(item).map_err(|e| match e {
-                TrySendError::Disconnected(t) => SendTimeoutError::Disconnected(t),
-                TrySendError::Full(t) => SendTimeoutError::Timeout(t),
-            }),
-            Some(deadline) => {
-                let _item = MaybeUninit::new(item);
-                if shared.inner.try_send(&_item) {
-                    shared.on_send();
-                    return Ok(());
-                }
-                match self._send_bounded(&_item, Some(deadline)) {
-                    Ok(_) => Ok(()),
-                    Err(e) => Err(e),
-                }
-            }
+            Some(deadline) => match self._send_bounded(&_item, Some(deadline)) {
+                Ok(_) => Ok(()),
+                Err(e) => Err(e),
+            },
+            // massive duration might make the time overflow
+            None => Err(SendTimeoutError::Timeout(unsafe { _item.assume_init_read() })),
         }
     }
 }
