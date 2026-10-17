@@ -1,6 +1,6 @@
 [package]
 name = "crossfire-utils"
-version = "0.1.0"
+version = "0.1.1"
 description = "Utilities used by crossfire"
 repository = "https://github.com/frostyplanet/crossfire-rs"
 categories = ["concurrency", "data-structures"]
@@ -17,3 +17,8 @@ std=[]
 
 [lints]
 workspace = true
+
+[package.metadata.docs.rs]
+all-features = true
+# enable features in the documentation
+rustdoc-args = ["--cfg", "docsrs"]
