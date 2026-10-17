@@ -133,7 +133,7 @@
 use crate::shared::{check_timeout, ThinWaker};
 #[allow(unused_imports)]
 use crate::{tokio_task_id, trace_log};
-use crossfire_utils::backoff::Backoff;
+use crossfire_utils::backoff::*;
 pub use pointers::{Pointer, SmartPointer};
 use std::cell::UnsafeCell;
 use std::fmt;
@@ -964,6 +964,7 @@ struct WaitGroupInner<T> {
     state: AtomicUsize,
     o_waker: UnsafeCell<Option<ThinWaker>>,
     inner: T,
+    backoff_cfg: BackoffConfig,
 }
 
 unsafe impl<T: Sync> Sync for WaitGroupInner<T> {}
@@ -971,7 +972,12 @@ unsafe impl<T: Sync> Sync for WaitGroupInner<T> {}
 impl<T> WaitGroupInner<T> {
     #[inline(always)]
     fn new(inner: T, init_count: usize) -> Self {
-        Self { state: AtomicUsize::new(init_count), o_waker: UnsafeCell::new(None), inner }
+        Self {
+            state: AtomicUsize::new(init_count),
+            o_waker: UnsafeCell::new(None),
+            inner,
+            backoff_cfg: BackoffConfig::detect(),
+        }
     }
 
     #[inline]
@@ -1149,7 +1155,7 @@ impl<T> WaitGroupInner<T> {
             };
         }
         check!(Acquire);
-        let mut backoff = Backoff::new();
+        let mut backoff = Backoff::from(self.backoff_cfg);
         let mut set_waker = false;
         loop {
             let r = backoff.snooze();
