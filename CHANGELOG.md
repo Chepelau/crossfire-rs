@@ -15,6 +15,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [3.1.21] - 2026-10-18
+
+### Changed
+
+- Split backoff into `crossfire-utils` crate
+
+- Minor optimize on backoff usage
+
 ## [3.1.20] - 2026-09-05
 
 ### Fixed
