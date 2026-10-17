@@ -129,7 +129,7 @@ impl Backoff {
         }
         if self.step < MAX_LIMIT {
             self.step += 1;
-            self.step > self.config.limit
+            self.step >= self.config.limit
         } else {
             true
         }
@@ -168,12 +168,13 @@ impl Backoff {
     #[cfg(feature = "std")]
     #[inline(always)]
     pub fn yield_now(&mut self) -> bool {
-        if self.step >= self.config.limit {
-            return true;
-        }
         std::thread::yield_now();
-        self.step += 1;
-        false
+        if self.step < self.config.limit {
+            self.step += 1;
+            self.step >= self.config.limit
+        } else {
+            true
+        }
     }
 
     #[inline(always)]
