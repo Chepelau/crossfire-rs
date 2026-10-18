@@ -45,7 +45,7 @@ fmt: init
 
 .PHONY: doc
 doc:
-	RUSTDOCFLAGS="--cfg docsrs" cargo +nightly doc --all-features
+	RUSTDOCFLAGS="--cfg docsrs" cargo +nightly doc --all-features --no-deps
 
 # usage:
 #  make test
