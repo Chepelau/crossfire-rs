@@ -50,6 +50,9 @@ trace_log = ["crossfire/trace_log"]
 # test invoking timer function in async runtime, try to opt-out time driver for miri
 time = ["compio?/time", "tokio?/time"]
 
+[lints]
+workspace = true
+
 [[bench]]
 name = "crossfire"
 harness = false
