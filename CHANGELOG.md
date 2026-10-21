@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 ### Fixed
+- Fix resource leaks when SendFuture or SendTimeoutFuture is dropped before its first poll.
 
 ## [3.1.21] - 2026-10-18
 
