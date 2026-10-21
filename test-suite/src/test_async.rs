@@ -1442,3 +1442,56 @@ fn _test_async_drop_msg<
         assert_eq!(get_drop_counter(), 4 + cap);
     });
 }
+
+#[logfn]
+#[rstest]
+#[case(spsc::bounded_async(1))]
+#[case(mpsc::bounded_async(1))]
+#[case(mpmc::bounded_async(1))]
+fn test_unpolled_future_item_drop_bounded<
+    T: AsyncTxTrait<SmallMsg> + 'static + Send,
+    R: AsyncRxTrait<SmallMsg> + 'static + Send,
+>(
+    setup_log: (), #[case] channel: (T, R),
+) {
+    reset_drop_counter();
+    runtime_block_on!(async move {
+        let (tx, rx) = channel;
+        let fut = tx.send(SmallMsg::new(0));
+        assert_eq!(get_drop_counter(), 0);
+
+        drop(fut);
+        assert_eq!(get_drop_counter(), 1);
+
+        drop(tx);
+        drop(rx);
+        assert_eq!(get_drop_counter(), 1);
+    });
+}
+
+#[cfg(feature = "tokio")]
+#[logfn]
+#[rstest]
+#[case(spsc::bounded_async(1))]
+#[case(mpsc::bounded_async(1))]
+#[case(mpmc::bounded_async(1))]
+fn test_unpolled_timeout_future_item_drop_bounded<
+    T: AsyncTxTrait<SmallMsg> + 'static + Send,
+    R: AsyncRxTrait<SmallMsg> + 'static + Send,
+>(
+    setup_log: (), #[case] channel: (T, R),
+) {
+    reset_drop_counter();
+    runtime_block_on!(async move {
+        let (tx, rx) = channel;
+        let fut = tx.send_timeout(SmallMsg::new(0), Duration::from_millis(1));
+        assert_eq!(get_drop_counter(), 0);
+
+        drop(fut);
+        assert_eq!(get_drop_counter(), 1);
+
+        drop(tx);
+        drop(rx);
+        assert_eq!(get_drop_counter(), 1);
+    });
+}
